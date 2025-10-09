@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 
 // 🔧 Update this to your production backend URL (e.g., from Vercel or Railway)
-const BACKEND_URL = "http://localhost:5000"; // replace with your deployed backend URL
+const BACKEND_URL = "https://lakshmipujabackend-et8e.vercel.app/"; // replace with your deployed backend URL
 
 export default function Click() {
   const [selected, setSelected] = useState(null);
