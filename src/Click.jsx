@@ -1,5 +1,9 @@
+// Click.js
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
+
+// 🔧 Update this to your production backend URL (e.g., from Vercel or Railway)
+const BACKEND_URL = "http://localhost:5000"; // replace with your deployed backend URL
 
 export default function Click() {
   const [selected, setSelected] = useState(null);
@@ -10,27 +14,23 @@ export default function Click() {
   const [showHistory, setShowHistory] = useState(false);
   const [balance, setBalance] = useState(0);
 
-  // Occupations with label + amount
   const occupations = {
     Student: { label: "Student :- 200", amount: 200 },
     "Private job": { label: "Private job :- 350", amount: 350 },
     "Gorvament job": { label: "Gorvament job :- 1000", amount: 1000 },
   };
 
-  // Local images mapping
   const images = {
     Student: "raviQR.jpg",
     "Private job": "raviQR.jpg",
     "Gorvament job": "raviQR.jpg",
   };
 
-  // Calculate total balance from history
   useEffect(() => {
     const total = history.reduce((sum, item) => sum + (item.amount || 0), 0);
     setBalance(total);
   }, [history]);
 
-  // Submit Form
   const handleSubmit = async () => {
     if (!name.trim()) return alert("⚠ Please enter your name!");
     if (!mobile.trim() || !/^\d{10}$/.test(mobile))
@@ -43,25 +43,33 @@ export default function Click() {
     const formData = new FormData();
     formData.append("name", name);
     formData.append("mobile", mobile);
-    formData.append("Occupation", selected);
+    formData.append("occupation", selected); // ✅ correct field name
     formData.append("image", file);
 
     try {
-      const response = await fetch("http://localhost:5000/save", {
+      const response = await fetch(`${BACKEND_URL}/save`, {
         method: "POST",
         body: formData,
       });
-      const data = await response.json();
-      alert(data.message);
 
-      // Add to local history
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to save entry");
+      }
+
+      alert(data.message || "✅ Saved!");
+
+      // 🆕: Extract image filename from response
+      const savedImage = data.image?.split("/").pop() || file.name;
+
       setHistory([
         ...history,
         {
           name,
           mobile,
-          Occupation: selected,
-          image: file.name,
+          occupation: selected,
+          image: savedImage,
           createdAt: new Date().toISOString(),
           amount: occupationValue,
         },
@@ -73,24 +81,32 @@ export default function Click() {
       setFile(null);
       setSelected(null);
     } catch (err) {
-      console.error(err);
+      console.error("❌ Save error:", err);
       alert("❌ Error saving data");
     }
   };
 
   const fetchHistory = async () => {
     try {
-      const res = await fetch("http://localhost:5000/all");
+      const res = await fetch(`${BACKEND_URL}/all`);
       const data = await res.json();
-      // Ensure each item has amount for calculation
+
+      // ✅ Prevent crash if backend sends an error object
+      if (!Array.isArray(data)) {
+        console.error("Invalid response format:", data);
+        alert("❌ Failed to load history");
+        return;
+      }
+
       const historyWithAmount = data.map((item) => ({
         ...item,
-        amount: occupations[item.Occupation]?.amount || 0,
+        amount: occupations[item.occupation]?.amount || 0,
       }));
+
       setHistory(historyWithAmount);
       setShowHistory(true);
     } catch (err) {
-      console.error(err);
+      console.error("❌ Fetch error:", err);
       alert("❌ Failed to load history");
     }
   };
@@ -98,7 +114,7 @@ export default function Click() {
   return (
     <div className="p-6 text-center font-sans bg-gray-50 min-h-screen">
       <div className="text-center text-3xl font-bold bg-clip-text text-transparent 
-            bg-gradient-to-r from-orange-500 via-green-500 to-blue-500 p-4 rounded-lg shadow-md flex items-center justify-center gap-2">
+        bg-gradient-to-r from-orange-500 via-green-500 to-blue-500 p-4 rounded-lg shadow-md flex items-center justify-center gap-2">
         <img src="lakshmema.jpg" alt="Lakshmi Maa" className="w-10 h-10" />
         <span> पटेल समिति घोरहा </span>
         <img src="lakshmema.jpg" alt="Lakshmi Maa" className="w-10 h-10" />
@@ -109,7 +125,6 @@ export default function Click() {
       </h1>
       <p className="mb-1 font-semibold">आप क्या करते हैं?</p>
 
-      {/* Occupation Options */}
       <div className="flex gap-4 justify-center mb-6 flex-wrap">
         {Object.entries(occupations).map(([key, occ]) => (
           <button
@@ -126,7 +141,6 @@ export default function Click() {
         ))}
       </div>
 
-      {/* Show Occupation Image */}
       {selected && (
         <div className="mb-6 animate-fadeIn">
           <img
@@ -137,7 +151,6 @@ export default function Click() {
         </div>
       )}
 
-      {/* Form */}
       <div className="max-w-md mx-auto p-6 bg-white rounded-2xl shadow-2xl mb-6 animate-fadeIn">
         <h2 className="text-xl font-bold mb-4 text-gray-700">Enter Your Details</h2>
         <input
@@ -168,12 +181,11 @@ export default function Click() {
         </button>
       </div>
 
-      {/* History & Balance Buttons */}
       <div className="flex gap-4 justify-center mb-4 flex-wrap">
         <button
           onClick={() => {
             if (!showHistory) fetchHistory();
-            else setShowHistory(!showHistory);
+            else setShowHistory(false);
           }}
           className="px-6 py-3 bg-purple-500 text-white rounded-xl shadow-lg hover:bg-purple-600 transition-all duration-300 font-semibold"
         >
@@ -187,12 +199,11 @@ export default function Click() {
           Balance: ₹{balance}
         </button>
 
-        <button className="px-6 py-3 bg-blue-500 text-white rounded-xl shadow-lg hover:bg-blue-700 transition-all duration-300 font-semibold disabled:opacity-50">
+        <button className="px-6 py-3 bg-blue-500 text-white rounded-xl shadow-lg hover:bg-blue-700 transition-all duration-300 font-semibold">
           <Link to="/lakshmi-info">Information</Link>
         </button>
       </div>
 
-      {/* History List */}
       {showHistory && (
         <div className="max-w-3xl mx-auto bg-white rounded-2xl shadow-xl p-6 transition-all duration-700 ease-in-out">
           <h2 className="text-2xl font-bold mb-4 text-gray-700">History</h2>
@@ -202,26 +213,14 @@ export default function Click() {
                 key={idx}
                 className="border-b pb-3 hover:bg-gray-50 rounded-lg transition-colors duration-300"
               >
-                <p>
-                  <span className="font-semibold">Name:</span> {item.name}
-                </p>
-                <p>
-                  <span className="font-semibold">Mobile:</span> {item.mobile}
-                </p>
-                <p>
-                  <span className="font-semibold">Occupation:</span> {item.Occupation}
-                </p>
-                <p>
-                  <span className="font-semibold">Amount:</span> ₹{item.amount}
-                </p>
+                <p><span className="font-semibold">Name:</span> {item.name}</p>
+                <p><span className="font-semibold">Mobile:</span> {item.mobile}</p>
+                <p><span className="font-semibold">Occupation:</span> {item.occupation}</p>
+                <p><span className="font-semibold">Amount:</span> ₹{item.amount}</p>
                 <p>
                   <span className="font-semibold">Image:</span>{" "}
                   <a
-                    href={
-                      item.image.startsWith("http")
-                        ? item.image
-                        : `http://localhost:5000/uploads/${item.image}`
-                    }
+                    href={`${BACKEND_URL}/uploads/${item.image}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-blue-600 underline hover:text-blue-800 transition-colors duration-300"
