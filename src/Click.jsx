@@ -1,9 +1,8 @@
-// Click.js
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 
-// 🔧 Update this to your production backend URL (e.g., from Vercel or Railway)
-const BACKEND_URL = "https://lakshmipujabackend-et8e.vercel.app"; // replace with your deployed backend URL
+// 🔧 Your deployed backend URL
+const BACKEND_URL = "https://lakshmipujabackend-2.onrender.com";
 
 export default function Click() {
   const [selected, setSelected] = useState(null);
@@ -13,6 +12,10 @@ export default function Click() {
   const [history, setHistory] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
   const [balance, setBalance] = useState(0);
+
+  // 🆕 Loading states
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isFetching, setIsFetching] = useState(false);
 
   const occupations = {
     Student: { label: "Student :- 200", amount: 200 },
@@ -31,6 +34,7 @@ export default function Click() {
     setBalance(total);
   }, [history]);
 
+  // 🧩 Handle Submit
   const handleSubmit = async () => {
     if (!name.trim()) return alert("⚠ Please enter your name!");
     if (!mobile.trim() || !/^\d{10}$/.test(mobile))
@@ -39,12 +43,13 @@ export default function Click() {
     if (!file) return alert("⚠ Please upload an image!");
 
     const occupationValue = occupations[selected]?.amount || 0;
-
     const formData = new FormData();
     formData.append("name", name);
     formData.append("mobile", mobile);
-    formData.append("occupation", selected); // ✅ correct field name
+    formData.append("occupation", selected);
     formData.append("image", file);
+
+    setIsSubmitting(true); // start loading
 
     try {
       const response = await fetch(`${BACKEND_URL}/save`, {
@@ -54,13 +59,10 @@ export default function Click() {
 
       const data = await response.json();
 
-      if (!response.ok) {
-        throw new Error(data.message || "Failed to save entry");
-      }
+      if (!response.ok) throw new Error(data.message || "Failed to save entry");
 
       alert(data.message || "✅ Saved!");
 
-      // 🆕: Extract image filename from response
       const savedImage = data.image?.split("/").pop() || file.name;
 
       setHistory([
@@ -75,7 +77,6 @@ export default function Click() {
         },
       ]);
 
-      // Reset form
       setName("");
       setMobile("");
       setFile(null);
@@ -83,17 +84,19 @@ export default function Click() {
     } catch (err) {
       console.error("❌ Save error:", err);
       alert("❌ Error saving data");
+    } finally {
+      setIsSubmitting(false); // stop loading
     }
   };
 
+  // 🧩 Fetch History
   const fetchHistory = async () => {
+    setIsFetching(true);
     try {
       const res = await fetch(`${BACKEND_URL}/all`);
       const data = await res.json();
 
-      // ✅ Prevent crash if backend sends an error object
       if (!Array.isArray(data)) {
-        console.error("Invalid response format:", data);
         alert("❌ Failed to load history");
         return;
       }
@@ -108,6 +111,8 @@ export default function Click() {
     } catch (err) {
       console.error("❌ Fetch error:", err);
       alert("❌ Failed to load history");
+    } finally {
+      setIsFetching(false);
     }
   };
 
@@ -125,16 +130,18 @@ export default function Click() {
       </h1>
       <p className="mb-1 font-semibold">आप क्या करते हैं?</p>
 
+      {/* Occupation Buttons */}
       <div className="flex gap-4 justify-center mb-6 flex-wrap">
         {Object.entries(occupations).map(([key, occ]) => (
           <button
             key={key}
+            disabled={isSubmitting}
             onClick={() => setSelected(key)}
             className={`px-6 py-3 rounded-lg shadow-lg font-semibold transition-all duration-300 ${
               selected === key
                 ? "scale-105 bg-gradient-to-r from-yellow-400 to-yellow-300 text-white"
                 : "bg-gray-200 hover:bg-gray-300"
-            }`}
+            } ${isSubmitting ? "opacity-50 cursor-not-allowed" : ""}`}
           >
             {occ.label}
           </button>
@@ -151,14 +158,17 @@ export default function Click() {
         </div>
       )}
 
+      {/* Form Section */}
       <div className="max-w-md mx-auto p-6 bg-white rounded-2xl shadow-2xl mb-6 animate-fadeIn">
         <h2 className="text-xl font-bold mb-4 text-gray-700">Enter Your Details</h2>
+
         <input
           type="text"
           placeholder="Your Name"
           className="w-full p-3 mb-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400"
           value={name}
           onChange={(e) => setName(e.target.value)}
+          disabled={isSubmitting}
         />
         <input
           type="text"
@@ -166,30 +176,44 @@ export default function Click() {
           className="w-full p-3 mb-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400"
           value={mobile}
           onChange={(e) => setMobile(e.target.value)}
+          disabled={isSubmitting}
         />
         <input
           type="file"
           accept="image/*"
           className="w-full p-2 mb-4 border rounded-lg cursor-pointer"
           onChange={(e) => setFile(e.target.files[0])}
+          disabled={isSubmitting}
         />
+
         <button
           onClick={handleSubmit}
-          className="w-full bg-yellow-400 text-white py-3 rounded-xl shadow-lg font-bold hover:bg-yellow-500 transition-all duration-300"
+          disabled={isSubmitting}
+          className={`w-full bg-yellow-400 text-white py-3 rounded-xl shadow-lg font-bold hover:bg-yellow-500 transition-all duration-300 ${
+            isSubmitting ? "opacity-50 cursor-wait" : ""
+          }`}
         >
-          Submit
+          {isSubmitting ? "⏳ Submitting..." : "Submit"}
         </button>
       </div>
 
+      {/* Action Buttons */}
       <div className="flex gap-4 justify-center mb-4 flex-wrap">
         <button
           onClick={() => {
             if (!showHistory) fetchHistory();
             else setShowHistory(false);
           }}
-          className="px-6 py-3 bg-purple-500 text-white rounded-xl shadow-lg hover:bg-purple-600 transition-all duration-300 font-semibold"
+          disabled={isFetching}
+          className={`px-6 py-3 bg-purple-500 text-white rounded-xl shadow-lg hover:bg-purple-600 transition-all duration-300 font-semibold ${
+            isFetching ? "opacity-50 cursor-wait" : ""
+          }`}
         >
-          {showHistory ? "Hide History" : "Show History"}
+          {isFetching
+            ? "🔄 Loading..."
+            : showHistory
+            ? "Hide History"
+            : "Show History"}
         </button>
 
         <button
@@ -199,11 +223,14 @@ export default function Click() {
           Balance: ₹{balance}
         </button>
 
-        <button className="px-6 py-3 bg-blue-500 text-white rounded-xl shadow-lg hover:bg-blue-700 transition-all duration-300 font-semibold">
-          <Link to="/lakshmi-info">Information</Link>
-        </button>
+        <Link to="/lakshmi-info">
+          <button className="px-6 py-3 bg-blue-500 text-white rounded-xl shadow-lg hover:bg-blue-700 transition-all duration-300 font-semibold">
+            Information
+          </button>
+        </Link>
       </div>
 
+      {/* History Section */}
       {showHistory && (
         <div className="max-w-3xl mx-auto bg-white rounded-2xl shadow-xl p-6 transition-all duration-700 ease-in-out">
           <h2 className="text-2xl font-bold mb-4 text-gray-700">History</h2>
@@ -220,12 +247,12 @@ export default function Click() {
                 <p>
                   <span className="font-semibold">Image:</span>{" "}
                   <a
-                    href={`${BACKEND_URL}/uploads/${item.image}`}
+                    href={item.image}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-blue-600 underline hover:text-blue-800 transition-colors duration-300"
                   >
-                    {item.image}
+                    View Image
                   </a>
                 </p>
                 <p className="text-sm text-gray-500">
